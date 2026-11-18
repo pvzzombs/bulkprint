@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <cmath>
 
 #include <dirent.h>
 
@@ -16,6 +17,7 @@
 #define IMAGE_MODE_SINGLE_CENTER 2
 #define IMAGE_MODE_GROUP_2 3
 #define IMAGE_MODE_FIT 4
+#define IMAGE_MODE_COLLAGE 5
 
 struct ImageID {
   std::string path;
@@ -37,6 +39,10 @@ struct Options {
   std::vector<ImageID> ids;
   bool rotate;
   bool help;
+  std::string media;
+  float mediaWidth;
+  float mediaHeight;
+  int groups;
 };
 
 struct ImageHandler {
@@ -149,6 +155,9 @@ Options getDefaultOptions() {
   out.pdfName = "output.pdf";
   out.rotate = false;
   out.help = false;
+  out.media = "A4";
+  out.mediaWidth = 595.44f;
+  out.mediaHeight = 841.68f;
   return out;
 }
 
@@ -190,14 +199,18 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
         out.ImageMode = IMAGE_MODE_GROUP_2;
       } else if (prop.at(1) == "fit") {
         out.ImageMode = IMAGE_MODE_FIT;
+      } else if (prop.at(1) == "collage") {
+        out.ImageMode = IMAGE_MODE_COLLAGE;
       }
+    } if (prop.at(0) == "--group" && out.ImageMode == IMAGE_MODE_COLLAGE) {
+      out.groups = std::stoi(prop.at(1));
     } else if (prop.at(0) == "-1b1" && out.ImageMode == IMAGE_MODE_ID) {
       ImageID img;
       img.path = prop.at(1);
       img.width = 72.0f;
       img.height = 72.0f;
       out.ids.push_back(img);
-    } else if ((prop.at(0) == "-c" || prop.at(0) == "--img") && (out.ImageMode == IMAGE_MODE_SINGLE_CENTER || out.ImageMode == IMAGE_MODE_GROUP_2 || out.ImageMode == IMAGE_MODE_FIT)) {
+    } else if ((prop.at(0) == "-c" || prop.at(0) == "--img") && (out.ImageMode == IMAGE_MODE_SINGLE_CENTER || out.ImageMode == IMAGE_MODE_GROUP_2 || out.ImageMode == IMAGE_MODE_FIT || out.ImageMode == IMAGE_MODE_COLLAGE)) {
       ImageID img;
       img.path = prop.at(1);
       out.ids.push_back(img);
@@ -217,6 +230,12 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
       out.rotate = true;
     } else if (prop.at(0) == "--help") {
       out.help = true;
+    } else if (prop.at(0) == "--media") {
+      if (prop.at(1) == "A4" || prop.at(1) == "a4") {
+        out.media = "A4";
+        out.mediaWidth = 595.44f;
+        out.mediaHeight = 841.68f;
+      }
     }
   }
   return out;
@@ -250,14 +269,29 @@ std::vector<std::pair<float, float>> initGroup2(float w, float h) {
   return out;
 }
 
+std::pair<float, float> getPictureCenter (float W, float H, int n, int index) {
+  int cols = std::ceil(std::sqrt(n * W / H));
+  int rows = (n + cols - 1) / cols;
+  float cellW = W / cols;
+  float cellH = H / rows;
+  int col = index % cols;
+  int row = index / cols;
+  std::pair<float, float> out;
+  out.first = (col + 0.5f) * cellW;
+  out.second = H - (row + 0.5f) * cellH;
+  return out;
+}
+
 void showHelp() {
   std::cout << "----------" << std::endl;
   std::cout << "Bulk Printer v. 2026-11-18" << std::endl;
   std::cout << "--help: Show this help..." << std::endl;
   std::cout << "--dir=<path>, -d=<path>: Set directory on default (Center) mode." << std::endl;
   std::cout << "--mode=<type>, -m=<type>: Set operation mode." << std::endl;
-  std::cout << "  Available modes are id, center, fit, 2." << std::endl;
+  std::cout << "  Available modes are id, center, fit, 2, collage." << std::endl;
   std::cout << "    --add-dir=<path>: add folder path containing image (first level, non-recursive)." << std::endl;
+  std::cout << "  On collage:" << std::endl;
+  std::cout << "    --group=<num>: set collage items count inside paper." << std::endl;
   std::cout << "  On center, 2:" << std::endl;
   std::cout << "    --img=<path>, -c=<path>: set single image from path." << std::endl;
   std::cout << "  On id:" << std::endl;
@@ -268,14 +302,15 @@ void showHelp() {
   std::cout << "--width=<num>, -w=<num>: Set target width." << std::endl;
   std::cout << "-o=<name>: Name of pdf file." << std::endl;
   std::cout << "--autorotate: Auto rotate pictures." << std::endl;
+  std::cout << "--media=<type>: Set paper media size." << std::endl;
   std::cout << "----------" << std::endl;
 }
 
 int main(int argc, char * argv[]) {
   Options opt;
   std::vector<std::pair<float, float>> group2;
-  float paperWidth = 595.44f;
-  float paperHeight = 841.68f;
+  float paperWidth = 0;
+  float paperHeight = 0;
   //std::cout << getPropertyAndValue("-d=wow").at(1) << std::endl;
   //returnImageNamesFromDir("./src");
   if (argc < 2) {
@@ -283,6 +318,8 @@ int main(int argc, char * argv[]) {
     return 1;
   } else {
     opt = getOptionsFromCommandLine(commandsToVector(argc, argv));
+    paperWidth = opt.mediaWidth;
+    paperHeight = opt.mediaHeight;
   }
 
   if (opt.help) {
@@ -291,6 +328,8 @@ int main(int argc, char * argv[]) {
   }
 
   HPDF_Doc pdf = HPDF_New(nullptr, nullptr);
+
+  HPDF_SetCompressionMode(pdf, HPDF_COMP_ALL);
 
   if (!pdf) {
     return 2;
@@ -328,7 +367,7 @@ int main(int argc, char * argv[]) {
       }
       break;
     }
-    case IMAGE_MODE_ID: {
+    case IMAGE_MODE_ID: case IMAGE_MODE_COLLAGE: {
       for (int i = 0; i < opt.ids.size(); i++) {
         int channels;
         opt.ids.at(i).pixels = stbi_load(opt.ids.at(i).path.c_str(), &(opt.ids.at(i).originalWidth), &(opt.ids.at(i).originalHeight), &channels, 3);
@@ -502,6 +541,37 @@ int main(int argc, char * argv[]) {
       }
       break;
     }
+    case IMAGE_MODE_COLLAGE: {
+      int max_pos = opt.groups;
+      int j = 0;
+      HPDF_Page page = HPDF_AddPage(pdf);
+      for (int i = 0; i < opt.ids.size(); i++) {
+        if (j == max_pos) {
+          page = HPDF_AddPage(pdf);
+          j = 0;
+        }
+        const ImageID & img = opt.ids.at(i);
+        const std::pair<float, float> pos = getPictureCenter(paperWidth, paperHeight, max_pos, j);
+
+        HPDF_Image image = HPDF_LoadRawImageFromMem(pdf, img.pixels, img.originalWidth, img.originalHeight, HPDF_CS_DEVICE_RGB, 8);
+
+        if (opt.bwidth) {
+          float scale = opt.width / opt.ids.at(i).originalWidth;
+          opt.ids.at(i).width = opt.width;
+          opt.ids.at(i).height = opt.ids.at(i).originalHeight * scale;
+        } else if (opt.bheight) {
+          float scale = opt.height / opt.ids.at(i).originalHeight;
+          opt.ids.at(i).height = opt.height;
+          opt.ids.at(i).width = opt.ids.at(i).originalWidth * scale;
+        } else {
+          std::cerr << "You forgot to specify target width or height!" << std::endl;
+        }
+
+        HPDF_Page_DrawImage(page, image, pos.first - img.width / 2.0f, pos.second - img.height / 2.0f, img.width, img.height);
+        j++;
+      }
+      break;
+    }
   }
 
   HPDF_SaveToFile(pdf, opt.pdfName.c_str());
@@ -513,7 +583,7 @@ int main(int argc, char * argv[]) {
       }
       break;
     }
-    case IMAGE_MODE_ID: case IMAGE_MODE_SINGLE_CENTER: case IMAGE_MODE_GROUP_2: case IMAGE_MODE_FIT: {
+    case IMAGE_MODE_ID: case IMAGE_MODE_SINGLE_CENTER: case IMAGE_MODE_GROUP_2: case IMAGE_MODE_FIT: case IMAGE_MODE_COLLAGE: {
       for (int i = 0; i < opt.ids.size(); i++) {
         stbi_image_free(opt.ids.at(i).pixels);
       }

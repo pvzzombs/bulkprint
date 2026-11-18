@@ -9,6 +9,7 @@
 #include <hpdf.h>
 
 
+#include "ProgressBar.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -342,6 +343,8 @@ int main(int argc, char * argv[]) {
 
   switch (opt.ImageMode) {
     case IMAGE_MODE_CENTER: {
+      const int total = imageNames.size();
+      progresscpp::ProgressBar bar(total, 50);
       imageNames = returnImageNamesFromDir(opt.dirName);
       for (int i = 0; i < imageNames.size(); i++) {
         std::string completePath = opt.dirName + "/" + imageNames.at(i);
@@ -364,20 +367,30 @@ int main(int argc, char * argv[]) {
           std::cerr << "You forgot to specify target width or height!" << std::endl;
         }
         images.push_back(img);
+        ++bar;
+        bar.display();
       }
+      bar.done();
       break;
     }
     case IMAGE_MODE_ID: case IMAGE_MODE_COLLAGE: {
+      const int total = opt.ids.size();
+      progresscpp::ProgressBar bar(total, 50);
       for (int i = 0; i < opt.ids.size(); i++) {
         int channels;
         opt.ids.at(i).pixels = stbi_load(opt.ids.at(i).path.c_str(), &(opt.ids.at(i).originalWidth), &(opt.ids.at(i).originalHeight), &channels, 3);
         if (!opt.ids.at(i).pixels) {
           return 3;
         }
+        ++bar;
+        bar.display();
       }
+      bar.done();
       break;
     }
     case IMAGE_MODE_SINGLE_CENTER: case IMAGE_MODE_GROUP_2: {
+      const int total = opt.ids.size();
+      progresscpp::ProgressBar bar(total, 50);
       for (int i = 0; i < opt.ids.size(); i++) {
         int channels;
         opt.ids.at(i).pixels = stbi_load(opt.ids.at(i).path.c_str(), &(opt.ids.at(i).originalWidth), &(opt.ids.at(i).originalHeight), &channels, 3);
@@ -395,10 +408,15 @@ int main(int argc, char * argv[]) {
         } else {
           std::cerr << "You forgot to specify target width or height!" << std::endl;
         }
-      } 
+        ++bar;
+        bar.display();
+      }
+      bar.done();
       break;
     }
     case IMAGE_MODE_FIT: {
+      const int total = opt.ids.size();
+      progresscpp::ProgressBar bar(total, 50);
       for (int i = 0; i < opt.ids.size(); i++) {
         int channels;
         opt.ids.at(i).pixels = stbi_load(opt.ids.at(i).path.c_str(), &(opt.ids.at(i).originalWidth), &(opt.ids.at(i).originalHeight), &channels, 3);
@@ -424,7 +442,10 @@ int main(int argc, char * argv[]) {
           opt.ids.at(i).height = paperHeight;
           opt.ids.at(i).width = opt.ids.at(i).originalWidth * scale;
         }
+        ++bar;
+        bar.display();
       }
+      bar.done();
       break;
     }
   }
@@ -432,6 +453,8 @@ int main(int argc, char * argv[]) {
 
   switch (opt.ImageMode) {
     case IMAGE_MODE_CENTER: {
+      const int total = imageNames.size();
+      progresscpp::ProgressBar bar(total, 50);
       for (int i = 0; i < imageNames.size(); i++) {
         float x = (paperWidth - images.at(i).newWidth) / 2;
         float y = (paperHeight - images.at(i).newHeight) / 2;
@@ -446,10 +469,15 @@ int main(int argc, char * argv[]) {
         } else {
           HPDF_Page_DrawImage(page, image, x, y, images.at(i).newWidth, images.at(i).newHeight);
         }
+        ++bar;
+        bar.display();
       }
+      bar.done();
       break;
     }
     case IMAGE_MODE_ID: {
+      const int total = opt.ids.size();
+      progresscpp::ProgressBar bar(total, 50);
       float x_start = -1, y_start = -1;
       HPDF_Page page;
       for (int i = 0; i < opt.ids.size(); i++) {
@@ -489,10 +517,15 @@ int main(int argc, char * argv[]) {
           y_start = -1;
           x_start = -1;
         }
+        ++bar;
+        bar.display();
       }
+      bar.done();
       break;
     }
     case IMAGE_MODE_SINGLE_CENTER: case IMAGE_MODE_FIT: {
+      const int total = opt.ids.size();
+      progresscpp::ProgressBar bar(total, 50);
       for (int i = 0; i < opt.ids.size(); i++) {
         float x = (paperWidth - opt.ids.at(i).width) / 2;
         float y = (paperHeight - opt.ids.at(i).height) / 2;
@@ -520,10 +553,15 @@ int main(int argc, char * argv[]) {
         } else {
           HPDF_Page_DrawImage(page, image, x, y, img.width, img.height);
         }
+        ++bar;
+        bar.display();
       }
+      bar.done();
       break;
     }
     case IMAGE_MODE_GROUP_2: {
+      const int total = opt.ids.size();
+      progresscpp::ProgressBar bar(total, 50);
       int max_pos = 2;
       int j = 0;
       HPDF_Page page = HPDF_AddPage(pdf);
@@ -538,10 +576,15 @@ int main(int argc, char * argv[]) {
         HPDF_Image image = HPDF_LoadRawImageFromMem(pdf, img.pixels, img.originalWidth, img.originalHeight, HPDF_CS_DEVICE_RGB, 8);
         HPDF_Page_DrawImage(page, image, pos.first - img.width / 2.0f, pos.second - img.height / 2.0f, img.width, img.height);
         j++;
+        ++bar;
+        bar.display();
       }
+      bar.done();
       break;
     }
     case IMAGE_MODE_COLLAGE: {
+      const int total = opt.ids.size();
+      progresscpp::ProgressBar bar(total, 50);
       int max_pos = opt.groups;
       int j = 0;
       HPDF_Page page = HPDF_AddPage(pdf);
@@ -569,11 +612,15 @@ int main(int argc, char * argv[]) {
 
         HPDF_Page_DrawImage(page, image, pos.first - img.width / 2.0f, pos.second - img.height / 2.0f, img.width, img.height);
         j++;
+        ++bar;
+        bar.display();
       }
+      bar.done();
       break;
     }
   }
 
+  std::cout << "Saving..." << std::endl;
   HPDF_SaveToFile(pdf, opt.pdfName.c_str());
   HPDF_Free(pdf);
   switch (opt.ImageMode) {

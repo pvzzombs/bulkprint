@@ -8,7 +8,7 @@
 
 #include <hpdf.h>
 
-
+#include "wildcards.hpp"
 #include "ProgressBar.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -162,6 +162,18 @@ Options getDefaultOptions() {
   return out;
 }
 
+std::vector<std::string> getParentDirectory(std::string s) {
+  std::string path = "";
+  std::vector<std::string> out;
+  int i = s.size() - 1;
+  while (i >= 0 && s.at(i) != '/') {
+    i--;
+  }
+  out.push_back(s.substr(0, i + 1));
+  out.push_back(s.substr(i + 1, s.size()));
+  return out;
+}
+
 Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
   Options out = getDefaultOptions();
   int i;
@@ -182,6 +194,23 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
           img.path = prop.at(1) + imageNames.at(i);
           out.ids.push_back(img);
         }
+      }
+    } else if (prop.at(0) == "--imgs") {
+      std::vector<std::string> strs = getParentDirectory(prop.at(1));
+      std::string pattern = strs.at(1);
+      std::vector<std::string> imageNames = returnImageNamesFromDir(strs.at(0));
+      int i;
+      for (i = 0; i < imageNames.size(); i++) {
+        if (!wildcards::match(imageNames.at(i), pattern)) { continue; }
+        ImageID img;
+        if (strs.at(0).size() && strs.at(0).at(strs.at(0).size() - 1) != '/') {
+          img.path = strs.at(0) + '/' + imageNames.at(i);
+          out.ids.push_back(img);
+        } else {
+          img.path = strs.at(0) + imageNames.at(i);
+          out.ids.push_back(img);
+        }
+        std::cout << "Selected: " << strs.at(0) << imageNames.at(i) << std::endl;
       }
     } else if (prop.at(0) == "-o") {
       out.pdfName = prop.at(1);
@@ -214,6 +243,8 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
     } else if ((prop.at(0) == "-c" || prop.at(0) == "--img") && (out.ImageMode == IMAGE_MODE_SINGLE_CENTER || out.ImageMode == IMAGE_MODE_GROUP_2 || out.ImageMode == IMAGE_MODE_FIT || out.ImageMode == IMAGE_MODE_COLLAGE)) {
       ImageID img;
       img.path = prop.at(1);
+      img.width = 0.0f;
+      img.height = 0.0f;
       out.ids.push_back(img);
     } else if (prop.at(0) == "-2b2" && out.ImageMode == IMAGE_MODE_ID) {
       ImageID img;
@@ -285,12 +316,13 @@ std::pair<float, float> getPictureCenter (float W, float H, int n, int index) {
 
 void showHelp() {
   std::cout << "----------" << std::endl;
-  std::cout << "Bulk Printer v. 2026-11-18" << std::endl;
+  std::cout << "Bulk Printer v. 2026-11-19" << std::endl;
   std::cout << "--help: Show this help..." << std::endl;
   std::cout << "--dir=<path>, -d=<path>: Set directory on default (Center) mode." << std::endl;
   std::cout << "--mode=<type>, -m=<type>: Set operation mode." << std::endl;
   std::cout << "  Available modes are id, center, fit, 2, collage." << std::endl;
   std::cout << "    --add-dir=<path>: add folder path containing image (first level, non-recursive)." << std::endl;
+  std::cout << "    --imgs=<pattern>: image path containing wildcards." << std::endl;
   std::cout << "  On collage:" << std::endl;
   std::cout << "    --group=<num>: set collage items count inside paper." << std::endl;
   std::cout << "  On center, 2:" << std::endl;
@@ -355,7 +387,10 @@ int main(int argc, char * argv[]) {
           return 3;
         }
         float scale = 1;
-        if (opt.bwidth) {
+        if (opt.bwidth && opt.bheight) {
+          img.newWidth = opt.width;
+          img.newHeight = opt.height;
+        } else if (opt.bwidth) {
           scale = opt.width / img.width;
           img.newWidth = opt.width;
           img.newHeight = img.height * scale;
@@ -397,7 +432,10 @@ int main(int argc, char * argv[]) {
         if (!opt.ids.at(i).pixels) {
           return 3;
         }
-        if (opt.bwidth) {
+        if (opt.bwidth && opt.bheight) {
+          opt.ids.at(i).width = opt.width;
+          opt.ids.at(i).height = opt.height;
+        } else if (opt.bwidth) {
           float scale = opt.width / opt.ids.at(i).originalWidth;
           opt.ids.at(i).width = opt.width;
           opt.ids.at(i).height = opt.ids.at(i).originalHeight * scale;
@@ -538,15 +576,6 @@ int main(int argc, char * argv[]) {
         ImageID img = opt.ids.at(i);
 
         HPDF_Image image = HPDF_LoadRawImageFromMem(pdf, img.pixels, img.originalWidth, img.originalHeight, HPDF_CS_DEVICE_RGB, 8);
-        /*if (img.width > paperWidth) {
-          float scale = paperWidth / img.width;
-          img.width = paperWidth;
-          img.height = img.height * scale;
-        } else if (img.height > paperHeight) {
-          float scale = paperHeight / img.height;
-          img.height = paperHeight;
-          img.width = img.width * scale;
-        }*/
 
         if (opt.rotate && img.width > img.height) {
           drawRotatedImageAtCenter(page, image, paperWidth, paperHeight, img.height, img.width);
@@ -598,7 +627,10 @@ int main(int argc, char * argv[]) {
 
         HPDF_Image image = HPDF_LoadRawImageFromMem(pdf, img.pixels, img.originalWidth, img.originalHeight, HPDF_CS_DEVICE_RGB, 8);
 
-        if (opt.bwidth) {
+        if (opt.bwidth && opt.bheight) {
+          opt.ids.at(i).width = opt.width;
+          opt.ids.at(i).height = opt.height;
+        } else if (opt.bwidth) {
           float scale = opt.width / opt.ids.at(i).originalWidth;
           opt.ids.at(i).width = opt.width;
           opt.ids.at(i).height = opt.ids.at(i).originalHeight * scale;

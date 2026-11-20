@@ -8,6 +8,11 @@ Third-Party Software Notices
 
 2. wildcards
    Authors: zemasoft
-   Github: https://github.com/zemasoft/wildcards/
+   Github: https://github.com/zemasoft/wildcards
    License: Boost Software License 1.0
+
+3. stb
+   Authors: nothings
+   Github: https://github.com/nothings/stb
+   License: Public Domain
 

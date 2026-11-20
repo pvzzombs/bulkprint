@@ -19,6 +19,7 @@
 #define IMAGE_MODE_GROUP_2 3
 #define IMAGE_MODE_FIT 4
 #define IMAGE_MODE_COLLAGE 5
+#define IMAGE_MODE_GRID 6
 
 struct ImageID {
   std::string path;
@@ -44,6 +45,8 @@ struct Options {
   float mediaWidth;
   float mediaHeight;
   int groups;
+  int rows;
+  int cols;
 };
 
 struct ImageHandler {
@@ -159,6 +162,9 @@ Options getDefaultOptions() {
   out.media = "A4";
   out.mediaWidth = 595.44f;
   out.mediaHeight = 841.68f;
+  out.rows = 1;
+  out.cols = 1;
+  out.groups = 100;
   return out;
 }
 
@@ -231,8 +237,10 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
         out.ImageMode = IMAGE_MODE_FIT;
       } else if (prop.at(1) == "collage") {
         out.ImageMode = IMAGE_MODE_COLLAGE;
+      } else if (prop.at(1) == "grid") {
+        out.ImageMode = IMAGE_MODE_GRID;
       }
-    } if (prop.at(0) == "--group" && out.ImageMode == IMAGE_MODE_COLLAGE) {
+    } if (prop.at(0) == "--group" && (out.ImageMode == IMAGE_MODE_COLLAGE || out.ImageMode == IMAGE_MODE_GRID)) {
       out.groups = std::stoi(prop.at(1));
     } else if (prop.at(0) == "-1b1" && out.ImageMode == IMAGE_MODE_ID) {
       ImageID img;
@@ -240,7 +248,7 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
       img.width = 72.0f;
       img.height = 72.0f;
       out.ids.push_back(img);
-    } else if ((prop.at(0) == "-c" || prop.at(0) == "--img") && (out.ImageMode == IMAGE_MODE_SINGLE_CENTER || out.ImageMode == IMAGE_MODE_GROUP_2 || out.ImageMode == IMAGE_MODE_FIT || out.ImageMode == IMAGE_MODE_COLLAGE)) {
+    } else if ((prop.at(0) == "-c" || prop.at(0) == "--img") && (out.ImageMode == IMAGE_MODE_SINGLE_CENTER || out.ImageMode == IMAGE_MODE_GROUP_2 || out.ImageMode == IMAGE_MODE_FIT || out.ImageMode == IMAGE_MODE_COLLAGE || out.ImageMode == IMAGE_MODE_GRID)) {
       ImageID img;
       img.path = prop.at(1);
       img.width = 0.0f;
@@ -268,6 +276,10 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
         out.mediaWidth = 595.44f;
         out.mediaHeight = 841.68f;
       }
+    } else if (prop.at(0) == "--rows" && out.ImageMode == IMAGE_MODE_GRID) {
+      out.rows = std::stoi(prop.at(1));
+    } else if (prop.at(0) == "--cols" && out.ImageMode == IMAGE_MODE_GRID) {
+      out.cols = std::stoi(prop.at(1));
     }
   }
   return out;
@@ -301,6 +313,24 @@ std::vector<std::pair<float, float>> initGroup2(float w, float h) {
   return out;
 }
 
+std::vector<std::pair<float, float>> initGrid(float w, float h, float c, float r) {
+  std::vector<std::pair<float, float>> out;
+  float stepx = w / c / 2;
+  float stepy = h / r / 2;
+  float startx = stepx;
+  float starty = stepy;
+  for (int i = 0; i < c; i++) {
+    starty = stepy + (stepy + stepy) * (r - 1);
+    for (int j = 0; j < r; j++) {
+      out.push_back(std::make_pair(startx, starty));
+      std::cout << "g: " << startx << ", " << starty << std::endl;
+      starty = starty - stepy - stepy;
+    }
+    startx += stepx + stepx;
+  }
+  return out;
+}
+
 std::pair<float, float> getPictureCenter (float W, float H, int n, int index) {
   int cols = std::ceil(std::sqrt(n * W / H));
   int rows = (n + cols - 1) / cols;
@@ -316,13 +346,17 @@ std::pair<float, float> getPictureCenter (float W, float H, int n, int index) {
 
 void showHelp() {
   std::cout << "----------" << std::endl;
-  std::cout << "Bulk Printer v. 2026-11-19" << std::endl;
+  std::cout << "Bulk Printer v. 2026-11-20" << std::endl;
   std::cout << "--help: Show this help..." << std::endl;
   std::cout << "--dir=<path>, -d=<path>: Set directory on default (Center) mode." << std::endl;
   std::cout << "--mode=<type>, -m=<type>: Set operation mode." << std::endl;
-  std::cout << "  Available modes are id, center, fit, 2, collage." << std::endl;
-  std::cout << "    --add-dir=<path>: add folder path containing image (first level, non-recursive)." << std::endl;
-  std::cout << "    --imgs=<pattern>: image path containing wildcards." << std::endl;
+  std::cout << "  Available modes are id, center, fit, 2, collage, grid." << std::endl;
+  std::cout << "    --add-dir=<path>: add folder path containing image (first level, non-depth-recursive)." << std::endl;
+  std::cout << "    --imgs=<pattern>: image path containing wildcards (first level, non-depth-recursive)." << std::endl;
+  std::cout << "  On grid:" << std::endl;
+  std::cout << "    --cols=<num>: number of columns of images." << std::endl;
+  std::cout << "    --rows=<num>: number of rows of images." << std::endl;
+  std::cout << "    --group=<num>: number of of images in the grid." << std::endl;
   std::cout << "  On collage:" << std::endl;
   std::cout << "    --group=<num>: set collage items count inside paper." << std::endl;
   std::cout << "  On center, 2:" << std::endl;
@@ -423,7 +457,7 @@ int main(int argc, char * argv[]) {
       bar.done();
       break;
     }
-    case IMAGE_MODE_SINGLE_CENTER: case IMAGE_MODE_GROUP_2: {
+    case IMAGE_MODE_SINGLE_CENTER: case IMAGE_MODE_GROUP_2: case IMAGE_MODE_GRID: {
       const int total = opt.ids.size();
       progresscpp::ProgressBar bar(total, 50);
       for (int i = 0; i < opt.ids.size(); i++) {
@@ -650,6 +684,30 @@ int main(int argc, char * argv[]) {
       bar.done();
       break;
     }
+    case IMAGE_MODE_GRID: {
+      std::vector<std::pair<float, float>> coords = initGrid(paperWidth, paperHeight, opt.cols, opt.rows);
+      int imageCount = returnMin(opt.groups, opt.cols * opt.rows);
+      int j = 0;
+      int total = opt.ids.size();
+      progresscpp::ProgressBar bar(total, 50);
+      HPDF_Page page = HPDF_AddPage(pdf);
+      for (int i = 0; i < opt.ids.size(); i++) {
+        if (j == imageCount) {
+          page = HPDF_AddPage(pdf);
+          j = 0;
+        }
+        
+        const ImageID & img = opt.ids.at(i);
+        HPDF_Image image = HPDF_LoadRawImageFromMem(pdf, img.pixels, img.originalWidth, img.originalHeight, HPDF_CS_DEVICE_RGB, 8);
+        
+        HPDF_Page_DrawImage(page, image, coords.at(j).first - img.width / 2.0f, coords.at(j).second - img.height / 2.0f, img.width, img.height);
+        j++;
+        ++bar;
+        bar.display();
+      }
+      bar.done();
+      break;
+    }
   }
 
   std::cout << "Saving..." << std::endl;
@@ -662,7 +720,7 @@ int main(int argc, char * argv[]) {
       }
       break;
     }
-    case IMAGE_MODE_ID: case IMAGE_MODE_SINGLE_CENTER: case IMAGE_MODE_GROUP_2: case IMAGE_MODE_FIT: case IMAGE_MODE_COLLAGE: {
+    case IMAGE_MODE_ID: case IMAGE_MODE_SINGLE_CENTER: case IMAGE_MODE_GROUP_2: case IMAGE_MODE_FIT: case IMAGE_MODE_COLLAGE: case IMAGE_MODE_GRID: {
       for (int i = 0; i < opt.ids.size(); i++) {
         stbi_image_free(opt.ids.at(i).pixels);
       }

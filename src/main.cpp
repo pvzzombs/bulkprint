@@ -550,17 +550,19 @@ int main(int argc, char * argv[]) {
     case IMAGE_MODE_ID: {
       const int total = opt.ids.size();
       progresscpp::ProgressBar bar(total, 50);
-      float x_start = -1, y_start = -1;
-      HPDF_Page page;
+      float x_start = 20, y_start = paperHeight - 25;
+      HPDF_Page page = HPDF_AddPage(pdf);
+      HPDF_Page_SetWidth(page, paperWidth);
+      HPDF_Page_SetHeight(page, paperHeight);
       for (int i = 0; i < opt.ids.size(); i++) {
-        if (y_start == -1) {
+        y_start -= opt.ids.at(i).height;
+        if (y_start <= 25) {
           page = HPDF_AddPage(pdf);
           HPDF_Page_SetWidth(page, paperWidth);
           HPDF_Page_SetHeight(page, paperHeight);
           x_start = 20;
-          y_start = paperHeight - 25;
+          y_start = paperHeight - 25 - opt.ids.at(i).height;
         }
-        y_start -= opt.ids.at(i).height;
         HPDF_Image image = HPDF_LoadRawImageFromMem(pdf, opt.ids.at(i).pixels, opt.ids.at(i).originalWidth, opt.ids.at(i).originalHeight, HPDF_CS_DEVICE_RGB, 8);
         if (opt.ids.at(i).height == 72.0f) {
           for (int j = 0; j < 6; j++) {
@@ -585,10 +587,6 @@ int main(int argc, char * argv[]) {
           x_start = 20;
         }
 
-        if (y_start <= 25) {
-          y_start = -1;
-          x_start = -1;
-        }
         ++bar;
         bar.display();
       }
@@ -628,9 +626,13 @@ int main(int argc, char * argv[]) {
       int max_pos = 2;
       int j = 0;
       HPDF_Page page = HPDF_AddPage(pdf);
+      HPDF_Page_SetWidth(page, paperWidth);
+      HPDF_Page_SetHeight(page, paperHeight);
       for (int i = 0; i < opt.ids.size(); i++) {
         if (j == max_pos) {
           page = HPDF_AddPage(pdf);
+          HPDF_Page_SetWidth(page, paperWidth);
+          HPDF_Page_SetHeight(page, paperHeight);
           j = 0;
         }
         const ImageID & img = opt.ids.at(i);
@@ -651,9 +653,13 @@ int main(int argc, char * argv[]) {
       int max_pos = opt.groups;
       int j = 0;
       HPDF_Page page = HPDF_AddPage(pdf);
+      HPDF_Page_SetWidth(page, paperWidth);
+      HPDF_Page_SetHeight(page, paperHeight);
       for (int i = 0; i < opt.ids.size(); i++) {
         if (j == max_pos) {
           page = HPDF_AddPage(pdf);
+          HPDF_Page_SetWidth(page, paperWidth);
+          HPDF_Page_SetHeight(page, paperHeight);
           j = 0;
         }
         const ImageID & img = opt.ids.at(i);
@@ -691,9 +697,13 @@ int main(int argc, char * argv[]) {
       int total = opt.ids.size();
       progresscpp::ProgressBar bar(total, 50);
       HPDF_Page page = HPDF_AddPage(pdf);
+      HPDF_Page_SetWidth(page, paperWidth);
+      HPDF_Page_SetHeight(page, paperHeight);
       for (int i = 0; i < opt.ids.size(); i++) {
         if (j == imageCount) {
           page = HPDF_AddPage(pdf);
+          HPDF_Page_SetWidth(page, paperWidth);
+          HPDF_Page_SetHeight(page, paperHeight);
           j = 0;
         }
         

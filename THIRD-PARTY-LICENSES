@@ -1,18 +1,23 @@
 Third-Party Software Notices
 ============================
 
-1. progress-cpp
-   Authors: prakhar1989
+1. libharu
+   Authors: Takeshi Kanno, Antony Dovgal, and contributors
+   Github: https://github.com/libharu/libharu
+   License: ZLIB/LIBPNG License
+
+2. progress-cpp
+   Authors: prakhar1989 and contrbutors
    Github: https://github.com/prakhar1989/progress-cpp
    License: MIT
 
-2. wildcards
-   Authors: zemasoft
+3. wildcards
+   Authors: zemasoft and contributors
    Github: https://github.com/zemasoft/wildcards
    License: Boost Software License 1.0
 
-3. stb
-   Authors: nothings
+4. stb
+   Authors: nothings and contributors
    Github: https://github.com/nothings/stb
    License: Public Domain
 

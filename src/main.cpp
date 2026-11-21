@@ -234,19 +234,18 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
       }
     } else if (prop.at(0) == "--imgs") {
       std::vector<std::string> strs = getParentDirectory(prop.at(1));
+      std::string dirName = strs.at(0);
       std::string pattern = strs.at(1);
       std::vector<std::string> imageNames = returnImageNamesFromDir(strs.at(0));
       int i;
+      while (dirName.size() && dirName.back() == '/') {
+        dirName.pop_back();
+      }
       for (i = 0; i < imageNames.size(); i++) {
-        if (!wildcards::match(imageNames.at(i), pattern)) { continue; }
         ImageID img;
-        if (strs.at(0).size() && strs.at(0).at(strs.at(0).size() - 1) != '/') {
-          img.path = strs.at(0) + '/' + imageNames.at(i);
-          out.ids.push_back(img);
-        } else {
-          img.path = strs.at(0) + imageNames.at(i);
-          out.ids.push_back(img);
-        }
+        if (!wildcards::match(imageNames.at(i), pattern)) { continue; }
+        img.path = dirName + '/' + imageNames.at(i);
+        out.ids.push_back(img);
         std::cout << "Selected: " << strs.at(0) << imageNames.at(i) << std::endl;
       }
     } else if (prop.at(0) == "-o") {
@@ -311,7 +310,7 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
       out.rows = std::stoi(prop.at(1));
     } else if (prop.at(0) == "--cols" && out.ImageMode == IMAGE_MODE_GRID) {
       out.cols = std::stoi(prop.at(1));
-    } else if (prop.at(0) == "--major") {
+    } else if (prop.at(0) == "--major" && out.ImageMode == IMAGE_MODE_GRID) {
       if (prop.at(1) == "row") {
         out.order = IMAGE_ORDER_ROW;
       } else if (prop.at(1) == "col") {

@@ -5,3 +5,8 @@ bulkprint
 *.jpg
 *.jpeg
 *.out
+build
+build/*
+bin
+bin/*
+

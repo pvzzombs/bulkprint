@@ -7,6 +7,12 @@
 
 #include <dirent.h>
 
+#if defined(_WIN32)
+
+#include <sys/stat.h>
+
+#endif
+
 #include <hpdf.h>
 
 #include "wildcards.hpp"
@@ -100,8 +106,8 @@ std::vector<std::string> returnImageNamesFromDir(std::string dirName) {
     }
 #else
     std::string name = entry->d_name;
-    struct stat info;
-    if (stat((dirName + "/" + name).c_str(), &info) == 0) {
+    struct _stat info;
+    if (_stat((dirName + "/" + name).c_str(), &info) == 0) {
       if (S_ISREG(info.st_mode)) {
         std::string suffix = getFileNameExtension(name);
         if (suffix == "png" || suffix == "jpg" || suffix == "jpeg") {

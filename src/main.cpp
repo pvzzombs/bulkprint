@@ -7,7 +7,7 @@
 
 #include <dirent.h>
 
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(__MINGW32__)
 
 #include <sys/stat.h>
 
@@ -92,6 +92,9 @@ std::vector<std::string> returnImageNamesFromDir(std::string dirName) {
     return output;
   }
   struct dirent * entry;
+  while (dirName.size() && dirName.back() == '/') {
+    dirName.pop_back();
+  }
   while ((entry = readdir(dir)) != nullptr) {
 #if !defined(_WIN32)
     if (entry->d_type == DT_REG) {
@@ -104,7 +107,7 @@ std::vector<std::string> returnImageNamesFromDir(std::string dirName) {
         std::cout << "Not an image: " << name << std::endl;
       }
     }
-#else
+#elif defined(_WIN32) && defined(__MINGW32__)
     std::string name = entry->d_name;
     struct _stat info;
     if (_stat((dirName + "/" + name).c_str(), &info) == 0) {

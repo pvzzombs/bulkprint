@@ -223,15 +223,14 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
     } else if (prop.at(0) == "--add-dir") {
       std::vector<std::string> imageNames = returnImageNamesFromDir(prop.at(1));
       int i;
+      std::string newDirName = prop.at(1);
+      while (newDirName.size() && newDirName.back() == '/') {
+        newDirName.pop_back();
+      }
       for (i = 0; i < imageNames.size(); i++) {
         ImageID img;
-        if (prop.at(1).size() && prop.at(1).at(prop.at(1).size() - 1) != '/') {
-          img.path = prop.at(1) + '/' + imageNames.at(i);
-          out.ids.push_back(img);
-        } else {
-          img.path = prop.at(1) + imageNames.at(i);
-          out.ids.push_back(img);
-        }
+        img.path = newDirName + '/' + imageNames.at(i);
+        out.ids.push_back(img);
       }
     } else if (prop.at(0) == "--imgs") {
       std::vector<std::string> strs = getParentDirectory(prop.at(1));

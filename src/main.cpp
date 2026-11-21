@@ -388,6 +388,7 @@ void showHelp() {
   std::cout << "    --cols=<num>: number of columns of images." << std::endl;
   std::cout << "    --rows=<num>: number of rows of images." << std::endl;
   std::cout << "    --group=<num>: number of of images in the grid." << std::endl;
+  std::cout << "    --major=<type>: row for row-major order, col for col-major order." << std::endl;
   std::cout << "  On collage:" << std::endl;
   std::cout << "    --group=<num>: set collage items count inside paper." << std::endl;
   std::cout << "  On center, 2:" << std::endl;

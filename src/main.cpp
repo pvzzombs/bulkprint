@@ -787,10 +787,10 @@ int main(int argc, char * argv[]) {
   std::cout << "Saving..." << std::endl;
   if (images.size() || opt.ids.size()) {
     HPDF_SaveToFile(pdf, opt.pdfName.c_str());
-    HPDF_Free(pdf);
   } else {
     std::cout << "Nothing to save, no pictures detected or used..." << std::endl;
   }
+  HPDF_Free(pdf);
   switch (opt.ImageMode) {
     case IMAGE_MODE_CENTER: {
       for (int i = 0; i < images.size(); i++) {

@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 #include <cmath>
+#include <algorithm>
 
 #include <dirent.h>
 
@@ -20,6 +21,9 @@
 #define IMAGE_MODE_FIT 4
 #define IMAGE_MODE_COLLAGE 5
 #define IMAGE_MODE_GRID 6
+
+#define IMAGE_ORDER_COL 0
+#define IMAGE_ORDER_ROW 1
 
 struct ImageID {
   std::string path;
@@ -47,6 +51,7 @@ struct Options {
   int groups;
   int rows;
   int cols;
+  int order;
 };
 
 struct ImageHandler {
@@ -94,6 +99,7 @@ std::vector<std::string> returnImageNamesFromDir(std::string dirName) {
     }
   }
   closedir(dir);
+  std::sort(output.begin(), output.end());
   return output;
 }
 
@@ -165,6 +171,7 @@ Options getDefaultOptions() {
   out.rows = 1;
   out.cols = 1;
   out.groups = 100;
+  out.order = IMAGE_ORDER_COL;
   return out;
 }
 
@@ -280,6 +287,12 @@ Options getOptionsFromCommandLine(std::vector<std::string> cmdLines) {
       out.rows = std::stoi(prop.at(1));
     } else if (prop.at(0) == "--cols" && out.ImageMode == IMAGE_MODE_GRID) {
       out.cols = std::stoi(prop.at(1));
+    } else if (prop.at(0) == "--major") {
+      if (prop.at(1) == "row") {
+        out.order = IMAGE_ORDER_ROW;
+      } else if (prop.at(1) == "col") {
+        out.order = IMAGE_ORDER_COL;
+      }
     }
   }
   return out;
@@ -313,7 +326,7 @@ std::vector<std::pair<float, float>> initGroup2(float w, float h) {
   return out;
 }
 
-std::vector<std::pair<float, float>> initGrid(float w, float h, float c, float r) {
+std::vector<std::pair<float, float>> initGridColMajor(float w, float h, float c, float r) {
   std::vector<std::pair<float, float>> out;
   float stepx = w / c / 2;
   float stepy = h / r / 2;
@@ -327,6 +340,24 @@ std::vector<std::pair<float, float>> initGrid(float w, float h, float c, float r
       starty = starty - stepy - stepy;
     }
     startx += stepx + stepx;
+  }
+  return out;
+}
+
+std::vector<std::pair<float, float>> initGridRowMajor(float w, float h, float c, float r) {
+  std::vector<std::pair<float, float>> out;
+  float stepx = w / c / 2;
+  float stepy = h / r / 2;
+  float startx = stepx;
+  float starty = stepy + (stepy + stepy) * (r - 1);
+  for (int j = 0; j < r; j++) {
+    startx = stepx;
+    for (int i = 0; i < c; i++) {
+      out.push_back(std::make_pair(startx, starty));
+      std::cout << "g: " << startx << ", " << starty << std::endl;
+      startx = startx + stepx + stepx;
+    }
+    starty = starty - stepy - stepy;
   }
   return out;
 }
@@ -346,7 +377,7 @@ std::pair<float, float> getPictureCenter (float W, float H, int n, int index) {
 
 void showHelp() {
   std::cout << "----------" << std::endl;
-  std::cout << "Bulk Printer v. 2026-11-20" << std::endl;
+  std::cout << "Bulk Printer v. 2026-11-21" << std::endl;
   std::cout << "--help: Show this help..." << std::endl;
   std::cout << "--dir=<path>, -d=<path>: Set directory on default (Center) mode." << std::endl;
   std::cout << "--mode=<type>, -m=<type>: Set operation mode." << std::endl;
@@ -691,7 +722,7 @@ int main(int argc, char * argv[]) {
       break;
     }
     case IMAGE_MODE_GRID: {
-      std::vector<std::pair<float, float>> coords = initGrid(paperWidth, paperHeight, opt.cols, opt.rows);
+      std::vector<std::pair<float, float>> coords;
       int imageCount = returnMin(opt.groups, opt.cols * opt.rows);
       int j = 0;
       int total = opt.ids.size();
@@ -699,6 +730,13 @@ int main(int argc, char * argv[]) {
       HPDF_Page page = HPDF_AddPage(pdf);
       HPDF_Page_SetWidth(page, paperWidth);
       HPDF_Page_SetHeight(page, paperHeight);
+
+      if (opt.order == IMAGE_ORDER_ROW) {
+        coords = initGridRowMajor(paperWidth, paperHeight, opt.cols, opt.rows);
+      } else if (opt.order == IMAGE_ORDER_COL) {
+        coords = initGridColMajor(paperWidth, paperHeight, opt.cols, opt.rows);
+      }
+
       for (int i = 0; i < opt.ids.size(); i++) {
         if (j == imageCount) {
           page = HPDF_AddPage(pdf);

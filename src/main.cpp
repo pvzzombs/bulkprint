@@ -87,6 +87,7 @@ std::vector<std::string> returnImageNamesFromDir(std::string dirName) {
   }
   struct dirent * entry;
   while ((entry = readdir(dir)) != nullptr) {
+#if !defined(_WIN32)
     if (entry->d_type == DT_REG) {
       std::string name = entry->d_name;
       std::string suffix = getFileNameExtension(name);
@@ -97,6 +98,21 @@ std::vector<std::string> returnImageNamesFromDir(std::string dirName) {
         std::cout << "Not an image: " << name << std::endl;
       }
     }
+#else
+    std::string name = entry->d_name;
+    struct stat info;
+    if (stat((dirName + "/" + name).c_str(), &info) == 0) {
+      if (S_ISREG(info.st_mode)) {
+        std::string suffix = getFileNameExtension(name);
+        if (suffix == "png" || suffix == "jpg" || suffix == "jpeg") {
+          output.push_back(name);
+          std::cout << "An image: " << name << std::endl; 
+        } else {
+          std::cout << "Not an image: " << name << std::endl;
+        } 
+      }
+    }
+#endif
   }
   closedir(dir);
   std::sort(output.begin(), output.end());
